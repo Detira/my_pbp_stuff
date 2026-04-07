@@ -1,5 +1,6 @@
-my_sqC_stuff/2.1/main
-my_sqC_stuff/2.1/main.bnd
-my_sqC_stuff/2.1/main.C
-my_sqC_stuff/2.1/main.o
-my_sqC_stuff/2.1/mcomp
+my_sqC_stuff/**/main
+my_sqC_stuff/**/main.bnd
+my_sqC_stuff/**/main.C
+my_sqC_stuff/**/main.o
+my_sqC_stuff/**/mcomp
+!my_sqC_stuff/mcomp

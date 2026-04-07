@@ -1,0 +1,58 @@
+// Napisati C/SQL program koji ispisuje indeks, ime, prezime, mesto rodjenja (ukoliko je navedeno u bazi) i datum diplomiranja (ukoliko je navedeno u bazi) za studenta ciji se broj indeksa ucitava sa standardnog ulaza.
+
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+	sqlint32 host_indeks;
+	char host_ime[51];
+	char host_prezime[51];
+	char host_mestorodjenja[51];
+	short indicator_mestorodjenja;
+	char host_datdiplomiranja[11];
+	short indicator_datdiplomiranja;
+	sqlint32 host_input_indeks;
+EXEC SQL END DECLARE SECTION;
+
+#define check_sql_error(msg)\
+	do{\
+		if(SQLCODE < 0){\
+			char buffer[1024];\
+			sqlaintp(buffer, sizeof(buffer), 50, &sqlca);\
+			std::cerr << "SQL error: " << msg << std::endl;\
+			std::cerr << "SQLCODE = " << SQLCODE << std::endl;\
+			std::cerr << buffer << std::endl;\
+			exec_sql_connect_reset();\
+			return 1;\
+		}\
+	} while(0)
+
+void exec_sql_connect_reset(){
+	EXEC SQL CONNECT RESET;
+}
+
+int main(){
+	
+	std::cin >> host_input_indeks;
+		
+	EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+	check_sql_error("connect");
+	
+	EXEC SQL
+		SELECT INDEKS, IME, PREZIME, MESTORODJENJA, DATDIPLOMIRANJA
+		INTO :host_indeks, :host_ime, :host_prezime, :host_mestorodjenja:indicator_mestorodjenja, :host_datdiplomiranja:indicator_datdiplomiranja
+		FROM DA.DOSIJE
+		WHERE INDEKS = :host_input_indeks
+	;
+	check_sql_error("select");
+	
+	EXEC SQL CONNECT RESET;
+	check_sql_error("reset");
+	
+	std::cout << host_indeks << " " << host_ime << " " << host_prezime << " " << ((indicator_mestorodjenja < 0) ? "NULL" : host_mestorodjenja) << " " << ((indicator_datdiplomiranja < 0) ? "NULL" : host_datdiplomiranja) << std::endl;
+	
+	return 0;
+}
+
