@@ -1,0 +1,7 @@
+Before trying to do anything with database, make sure to start it with:
+	db2start
+
+To recreate the database (restore it to defaults) do the following:
+	Position to ~/Desktop/materijali/baze
+	Run create.sh using ./create.sh command
+

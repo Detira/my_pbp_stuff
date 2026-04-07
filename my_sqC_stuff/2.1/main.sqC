@@ -1,0 +1,48 @@
+// Napisati C/SQL program koji ispisuje maksimalni indeks iz tabele ISPIT.
+
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint32 host_max_indeks;
+EXEC SQL END DECLARE SECTION;
+
+// SQLCODE == sqlca.sqlcode
+#define check_sql_error(msg)\
+	do{\
+		if(SQLCODE < 0){\
+			char buffer[1024];\
+			sqlaintp(buffer, sizeof(buffer), 50, &sqlca);\
+			std::cerr << "SQL error: " << msg << std::endl;\
+			std::cerr << "SQLCODE = " << SQLCODE << std::endl;\
+			std::cerr << buffer << std::endl;\
+			exec_sql_connect_reset();\
+			return 1;\
+		}\
+	} while(0)
+
+void exec_sql_connect_reset(){
+	EXEC SQL CONNECT RESET;
+}
+
+int main(){
+	EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+	check_sql_error("connect");
+	
+	EXEC SQL
+		SELECT MAX(INDEKS)
+		INTO :host_max_indeks
+		FROM DA.ISPIT
+	;
+	check_sql_error("select");
+	
+	std::cout << "Maksimalni indeks iz tabele ispit je: " << host_max_indeks << std::endl;
+	
+	EXEC SQL CONNECT RESET;
+	check_sql_error("reset");
+	
+	return 0;
+}
+
