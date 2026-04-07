@@ -9,58 +9,39 @@ EXEC SQL BEGIN DECLARE SECTION;
 	sqlint32 host_indeks;
 EXEC SQL END DECLARE SECTION;
 
-// SQLCODE == sqlca.sqlcode
-#define check_sql_error(msg)\
-	do{\
-		if(SQLCODE < 0){\
-			char buffer[1024];\
-			sqlaintp(buffer, sizeof(buffer), 50, &sqlca);\
-			std::cerr << "SQL error: " << msg << std::endl;\
-			std::cerr << "SQLCODE = " << SQLCODE << std::endl;\
-			std::cerr << buffer << std::endl;\
-			exec_sql_connect_reset();\
-			return 1;\
-		}\
-	} while(0)
-
-// precompiling would extract EXEC SQL command into:
-	/*
-	/*
-	EXEC SQL CONNECT RESET;
-	{asterisk}/		<- if I put * there it would end the comment
-
-	{
-	#line 27 "main.sqC"
-	  sqlastrt(sqla_program_id, &sqla_rtinfo, &sqlca);
-	#line 27 "main.sqC"
-	  sqlacall((unsigned short)29,3,0,0,0L);
-	#line 27 "main.sqC"
-	  sqlastop(0L);
-	}
-
-	#line 27 "main.sqC"
-*/
-// since these lines don't end with \ the macro wouldn't behave according to expectations
-// therefore we define this function as a workaround
-void exec_sql_connect_reset(){
-	EXEC SQL CONNECT RESET;
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException(){}
+	};
 }
-// new question arises: What's the point of a macro if we use function within it anyway?
-// with macro, we can use return 1 or return EXIT_FAILURE inside of main (which are both drasticallydrast different than exit(EXIT_FAILURE) from cstdlib in C++, return 1 (when in main) calls local destructors, while the other commands wouldn't (it's worth noting that the recommended way of handling errors in C++ is with exceptions and try/catch blocks, but it overcomplicates main which tends to be rather short in this these tasks)
 
 int main(){
-	EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
-	check_sql_error("connect");
 	
-	EXEC SQL
-		SELECT MAX(INDEKS)
-		INTO :host_indeks
-		FROM DA.ISPIT
-	;
-	check_sql_error("select");
-	
-	EXEC SQL CONNECT RESET;
-	check_sql_error("reset");
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL
+			SELECT MAX(INDEKS)
+			INTO :host_indeks
+			FROM DA.ISPIT
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
 	
 	std::cout << "Maksimalni indeks iz tabele ispit je: " << host_indeks << std::endl;
 	

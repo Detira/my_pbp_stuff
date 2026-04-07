@@ -1,0 +1,121 @@
+// Napisati naredne funkcije:
+// Napisati funkciju void insertNewCourse() koja sa standardnog ulaza ucitava podatke o identifikatoru, oznaci, nazivu i bodovima za novi predmet na fakultetu. Potrebno je uneti te podatke u tabelu PREDMET. Nakon toga odgovarajucom naredbom proveriti da li su podaci dobro uneti i ispisati ih.
+// Napisati funkciju void updateNewCourse() koja izvrsava azuriranje podataka za novouneseni predmet, tako sto se broj bodova duplo povecava i nakon cega se podaci izlistavaju ponovo.
+// Napisati funkciju void deleteNewCourse() koja brise novouneseni predmet iz baze podataka.
+
+#include <iostream>
+#include <sql.h>
+#include <string>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+	sqlint32 host_id;
+	char host_oznaka[21];
+	char host_naziv[151];
+	sqlint16 host_espb;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException(){}
+	};
+
+	void insertNewCourse(){
+		
+		std::cout << "expecting: id" << std::endl;
+		std::cin >> host_id;
+		std::cout << "expecting: oznaka" << std::endl;
+		std::cin >> host_oznaka;
+		std::cout << "expecting: naziv" << std::endl;
+		std::string s;
+		std::getline(std::cin >> std::ws, s);
+		s.copy(host_naziv, sizeof(host_naziv)-1);
+		host_naziv[sizeof(host_naziv)-1] = 0;
+		std::cout << "expecting: espb" << std::endl;
+		std::cin >> host_espb;
+		
+		EXEC SQL
+			INSERT INTO DA.PREDMET
+			VALUES (:host_id, :host_oznaka, :host_naziv, :host_espb)
+		;
+		if(SQLCODE < 0) throw my::SqlException("insert");
+		
+		std::cout << "running: select * from da.predmet where id = " << host_id << std::endl;
+		
+		EXEC SQL
+			SELECT *
+			INTO :host_id, :host_oznaka, :host_naziv, :host_espb
+			FROM DA.PREDMET
+			WHERE ID = :host_id
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		std::cout << host_id << " " << host_oznaka << " " << host_naziv << " " << host_espb << std::endl;
+	}
+
+	void updateNewCourse(){
+		
+		EXEC SQL
+			UPDATE DA.PREDMET
+			SET ESPB = 2 * ESPB
+			WHERE ID = :host_id
+		;
+		if(SQLCODE < 0) throw my::SqlException("update");
+		
+		std::cout << "running: select * from da.predmet where id = " << host_id << std::endl;
+		
+		EXEC SQL
+			SELECT *
+			INTO :host_id, :host_oznaka, :host_naziv, :host_espb
+			FROM DA.PREDMET
+			WHERE ID = :host_id
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		std::cout << host_id << " " << host_oznaka << " " << host_naziv << " " << host_espb << std::endl;
+		
+	}
+
+	void deleteNewCourse(){
+		
+		EXEC SQL
+			DELETE FROM DA.PREDMET
+			WHERE ID = :host_id
+		;
+		if(SQLCODE < 0) throw my::SqlException("delete");
+	}
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		std::cout << "executing: insertNewCourse()" << std::endl;
+		my::insertNewCourse();
+		
+		std::cout << "executing: updateNewCourse()" << std::endl;
+		my::updateNewCourse();
+		
+		my::deleteNewCourse();
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");;
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
+	
+	return 0;
+}
+

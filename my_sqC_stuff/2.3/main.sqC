@@ -16,40 +16,42 @@ EXEC SQL BEGIN DECLARE SECTION;
 	sqlint32 host_input_indeks;
 EXEC SQL END DECLARE SECTION;
 
-#define check_sql_error(msg)\
-	do{\
-		if(SQLCODE < 0){\
-			char buffer[1024];\
-			sqlaintp(buffer, sizeof(buffer), 50, &sqlca);\
-			std::cerr << "SQL error: " << msg << std::endl;\
-			std::cerr << "SQLCODE = " << SQLCODE << std::endl;\
-			std::cerr << buffer << std::endl;\
-			exec_sql_connect_reset();\
-			return 1;\
-		}\
-	} while(0)
-
-void exec_sql_connect_reset(){
-	EXEC SQL CONNECT RESET;
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException(){}
+	};
 }
 
 int main(){
 	
-	std::cin >> host_input_indeks;
+	try{
+		std::cin >> host_input_indeks;
+			
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
 		
-	EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
-	check_sql_error("connect");
-	
-	EXEC SQL
-		SELECT INDEKS, IME, PREZIME, MESTORODJENJA, DATDIPLOMIRANJA
-		INTO :host_indeks, :host_ime, :host_prezime, :host_mestorodjenja:indicator_mestorodjenja, :host_datdiplomiranja:indicator_datdiplomiranja
-		FROM DA.DOSIJE
-		WHERE INDEKS = :host_input_indeks
-	;
-	check_sql_error("select");
-	
-	EXEC SQL CONNECT RESET;
-	check_sql_error("reset");
+		EXEC SQL
+			SELECT INDEKS, IME, PREZIME, MESTORODJENJA, DATDIPLOMIRANJA
+			INTO :host_indeks, :host_ime, :host_prezime, :host_mestorodjenja:indicator_mestorodjenja, :host_datdiplomiranja:indicator_datdiplomiranja
+			FROM DA.DOSIJE
+			WHERE INDEKS = :host_input_indeks
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
 	
 	std::cout << host_indeks << " " << host_ime << " " << host_prezime << " " << ((indicator_mestorodjenja < 0) ? "NULL" : host_mestorodjenja) << " " << ((indicator_datdiplomiranja < 0) ? "NULL" : host_datdiplomiranja) << std::endl;
 	
