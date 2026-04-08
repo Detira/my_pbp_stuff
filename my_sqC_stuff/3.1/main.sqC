@@ -12,7 +12,9 @@ EXEC SQL BEGIN DECLARE SECTION;
 	sqlint16 host_idnivoa;
 	sqlint16 host_obimespb;
 	char host_zvanje[101];
-	struct { short length; char data[32700]; } host_opis;
+	SQL TYPE IS CLOB(32700) host_opis;
+	// this is what happens behind the curtains, it can also be coded manually and short can be used instead of sqluint32
+	// struct { sqluint32 length; char data[32700]; } host_opis;
 	short indicator_opis;
 EXEC SQL END DECLARE SECTION;
 
