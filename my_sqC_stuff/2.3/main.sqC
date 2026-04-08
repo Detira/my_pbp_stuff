@@ -23,7 +23,7 @@ namespace my{
 			const char* msg;
 			
 			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
-			~SqlException(){}
+			~SqlException() noexcept {}
 	};
 }
 

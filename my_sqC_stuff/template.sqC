@@ -1,12 +1,9 @@
-// Napisati C/SQL program koji ispisuje maksimalni indeks iz tabele ISPIT.
-
 #include <iostream>
 #include <sql.h>
 
 EXEC SQL INCLUDE SQLCA;
 
 EXEC SQL BEGIN DECLARE SECTION;
-	sqlint32 host_indeks;
 EXEC SQL END DECLARE SECTION;
 
 namespace my{
@@ -26,13 +23,6 @@ int main(){
 		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
 		if(SQLCODE < 0) throw my::SqlException("connect");
 		
-		EXEC SQL
-			SELECT MAX(INDEKS)
-			INTO :host_indeks
-			FROM DA.ISPIT
-		;
-		if(SQLCODE < 0) throw my::SqlException("select");
-		
 		EXEC SQL CONNECT RESET;
 		if(SQLCODE < 0) throw my::SqlException("reset");
 	} catch(const my::SqlException& e){
@@ -42,8 +32,6 @@ int main(){
 		std::cerr << buffer << std::endl;
 		EXEC SQL CONNECT RESET;
 	}
-	
-	std::cout << "Maksimalni indeks iz tabele ispit je: " << host_indeks << std::endl;
 	
 	return 0;
 }

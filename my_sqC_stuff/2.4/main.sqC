@@ -23,7 +23,7 @@ namespace my{
 			const char* msg;
 			
 			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
-			~SqlException(){}
+			~SqlException() noexcept {}
 	};
 
 	void insertNewCourse(){
@@ -107,7 +107,7 @@ int main(){
 		my::deleteNewCourse();
 		
 		EXEC SQL CONNECT RESET;
-		if(SQLCODE < 0) throw my::SqlException("reset");;
+		if(SQLCODE < 0) throw my::SqlException("reset");
 	} catch(const my::SqlException& e){
 		char buffer[1024];
 		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
