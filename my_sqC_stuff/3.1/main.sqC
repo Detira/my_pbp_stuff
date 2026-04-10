@@ -1,4 +1,4 @@
-// Napisati C/SQL program koji ispisuje identifikator, oznaku, naziv, nivo, broj bodova, zvanje i opis za svaki od studijskih programa.
+// Napisati C++/SQL program koji ispisuje identifikator, oznaku, naziv, nivo, broj bodova, zvanje i opis za svaki od studijskih programa.
 
 #include <iostream>
 #include <sql.h>

@@ -1,4 +1,4 @@
-// Napisati C/SQL program koji ispisuje indeks, ime, prezime, mesto rodjenja (ukoliko je navedeno u bazi) i datum diplomiranja (ukoliko je navedeno u bazi) za studenta ciji se broj indeksa ucitava sa standardnog ulaza.
+// Napisati C++/SQL program koji ispisuje indeks, ime, prezime, mesto rodjenja (ukoliko je navedeno u bazi) i datum diplomiranja (ukoliko je navedeno u bazi) za studenta ciji se broj indeksa ucitava sa standardnog ulaza.
 
 #include <iostream>
 #include <sql.h>

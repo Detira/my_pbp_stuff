@@ -1,4 +1,4 @@
-// Napisati C/SQL program kojim se za uneti broj indeksa studenta ispisuju podaci (naziv predmeta, datum polaganja i ocena) za sve ispite koje je on polozio. Nakon toga, ispisati prosek ocena tog studenta.
+// Napisati C++/SQL program kojim se za uneti broj indeksa studenta ispisuju podaci (naziv predmeta, datum polaganja i ocena) za sve ispite koje je on polozio. Nakon toga, ispisati prosek ocena tog studenta.
 
 #include <iostream>
 #include <sql.h>

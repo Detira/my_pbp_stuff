@@ -1,4 +1,4 @@
-// Napisati C/SQL program koji ispisuje maksimalni indeks iz tabele ISPIT.
+// Napisati C++/SQL program koji ispisuje maksimalni indeks iz tabele ISPIT.
 
 #include <iostream>
 #include <sql.h>

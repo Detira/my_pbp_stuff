@@ -1,4 +1,4 @@
-// Napisati C/SQL program koji ispisuje indeks, ime, prezime, mesto rodjenja (ukoliko je navedeno u bazi) i datum diplomiranja (ukoliko je navedeno u bazi) za studenta sa maksimalnim indeksom iz tabele ISPIT.
+// Napisati C++/SQL program koji ispisuje indeks, ime, prezime, mesto rodjenja (ukoliko je navedeno u bazi) i datum diplomiranja (ukoliko je navedeno u bazi) za studenta sa maksimalnim indeksom iz tabele ISPIT.
 
 #include <iostream>
 #include <sql.h>
