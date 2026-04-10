@@ -30,10 +30,10 @@ namespace my{
 int main(){
 	
 	try{
-		std::cin >> host_input_indeks;
-			
 		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
 		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		std::cin >> host_input_indeks;
 		
 		EXEC SQL
 			SELECT INDEKS, IME, PREZIME, MESTORODJENJA, DATDIPLOMIRANJA

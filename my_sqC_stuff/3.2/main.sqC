@@ -1,0 +1,82 @@
+// Napisati C/SQL program kojim se za uneti broj indeksa studenta ispisuju podaci (naziv predmeta, datum polaganja i ocena) za sve ispite koje je on polozio. Nakon toga, ispisati prosek ocena tog studenta.
+
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint32 host_indeks;
+char host_naziv[151];
+char host_datpolaganja[11];
+short indicator_datpolaganja;
+sqlint16 host_ocena;
+short indicator_ocena;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL
+			DECLARE cursor_ispit CURSOR FOR
+			SELECT NAZIV, DATPOLAGANJA, OCENA
+			FROM DA.PREDMET JOIN DA.ISPIT ON ID = IDPREDMETA
+			WHERE INDEKS = :host_indeks AND STATUS = 'o' AND OCENA > 5
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		std::cin >> host_indeks;
+		
+		EXEC SQL OPEN cursor_ispit;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		int sum = 0;
+		int count = 0;
+		for(;;){
+			EXEC SQL
+				FETCH cursor_ispit
+				INTO :host_naziv, :host_datpolaganja:indicator_datpolaganja, :host_ocena:indicator_ocena
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			if(indicator_ocena >= 0){
+				sum += (int)host_ocena;
+				count++;
+				
+				std::cout << host_naziv << " " << ((indicator_datpolaganja < 0) ? "NULL" : host_datpolaganja) << " " << host_ocena << std::endl;
+			} else {
+				std::cout << host_naziv << " " << ((indicator_datpolaganja < 0) ? "NULL" : host_datpolaganja) << " " << "NULL" << std::endl;
+			}
+		}
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+		
+		std::cout << "Prosek: " << (sum+0.0)/count << std::endl;
+		
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
+	
+	return 0;
+}
+
