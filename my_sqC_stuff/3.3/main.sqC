@@ -1,0 +1,78 @@
+// Napisati C++/SQL program kojim se za svaki od studijskih programa korisniku postavlja pitanje da li zeli da uveca broj bodova za 10. Ako je odgovor potvrdan, vrsi se odgovarajuca promena.
+
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint32 host_id;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL
+			DECLARE cursor_studijskiprogram CURSOR FOR
+			SELECT ID
+			FROM DA.STUDIJSKIPROGRAM
+			FOR UPDATE OF OBIMESPB
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL OPEN cursor_studijskiprogram;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		char input;
+		for(;;){
+			EXEC SQL
+				FETCH cursor_studijskiprogram
+				INTO :host_id
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			std::cout << host_id << "? (y/n)" << std::endl;
+			
+			std::cin >> input;
+			
+			if(input == 'y'){
+				EXEC SQL
+					UPDATE DA.STUDIJSKIPROGRAM
+					SET OBIMESPB = OBIMESPB + 10
+					WHERE CURRENT OF cursor_studijskiprogram
+				;
+				if(SQLCODE < 0) throw my::SqlException("update");
+			}
+		}
+		
+		EXEC SQL CLOSE cursor_studijskiprogram;
+		if(SQLCODE < 0) throw my::SqlException("close");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
+	
+	return 0;
+}
+

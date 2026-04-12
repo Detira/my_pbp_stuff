@@ -64,6 +64,9 @@ int main(){
 			}
 		}
 		
+		EXEC SQL CLOSE cursor_ispit;
+		if(SQLCODE < 0) throw my::SqlException("close");
+		
 		EXEC SQL CONNECT RESET;
 		if(SQLCODE < 0) throw my::SqlException("reset");
 		
