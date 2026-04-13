@@ -1,0 +1,88 @@
+// Napisati C++/SQL program kojim se za sve studente studijskog programa Informatika brise prvi polozen ispit (ukoliko ima polozenih ispita tog studenta). Za svako obrisano polaganje ispisati: indeks, ime i prezime studenta, datum polaganja i naziv predmeta.
+
+
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint32 host_indeks;
+char host_ime[51];
+char host_prezime[51];
+char host_datpolaganja[11];
+short indicator_datpolaganja;
+char host_naziv[151];
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL
+			DECLARE cursor_ispit CURSOR FOR
+			SELECT INDEKS, (SELECT IME FROM DA.DOSIJE WHERE INDEKS = X.INDEKS), (SELECT PREZIME FROM DA.DOSIJE WHERE INDEKS = X.INDEKS), DATPOLAGANJA, (SELECT NAZIV FROM DA.PREDMET WHERE ID = X.IDPREDMETA)
+		FROM DA.ISPIT X
+		WHERE (SKGODINA, OZNAKAROKA, INDEKS, IDPREDMETA) IN
+			(
+			SELECT SKGODINA, OZNAKAROKA, INDEKS, IDPREDMETA
+			FROM
+				(
+				SELECT P.SKGODINA, P.OZNAKAROKA, P.INDEKS, P.IDPREDMETA, ROW_NUMBER() OVER(PARTITION BY P.INDEKS ORDER BY P.DATPOLAGANJA ASC) as row_num
+				FROM DA.ISPIT P JOIN DA.DOSIJE Q ON P.INDEKS = Q.INDEKS JOIN DA.STUDIJSKIPROGRAM R ON Q.IDPROGRAMA = R.ID
+				WHERE R.NAZIV = 'Informatika' AND P.STATUS = 'o' AND P.OCENA > 5
+				)
+			WHERE row_num = 1
+			)
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL OPEN cursor_ispit;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		for(;;){
+			EXEC SQL
+				FETCH cursor_ispit
+				INTO :host_indeks, :host_ime, :host_prezime, :host_datpolaganja:indicator_datpolaganja, :host_naziv
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			EXEC SQL
+				DELETE FROM DA.ISPIT
+				WHERE CURRENT OF cursor_ispit
+			;
+			if(SQLCODE < 0) throw my::SqlException("delete");
+			
+			std::cout << host_indeks << " " << host_ime << " " << host_prezime << " " << ((indicator_datpolaganja < 0) ? "NULL" : host_datpolaganja) << " " << host_naziv << std::endl;
+		}
+		
+		EXEC SQL CLOSE cursor_ispit;
+		if(SQLCODE < 0) throw my::SqlException("close");
+			
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
+	
+	return 0;
+}
+
