@@ -1,0 +1,66 @@
+// Napisati:
+// C++/SQL program u kojem se naredbe izvrsavaju dinamicki koji cita SQL naredbu iz datoteke ciji se naziv zadaje kao prvi argument klomandne linije. SQL naredba se cita do pojave karaktera ; ili do kraja datoteke, ispisuje se korisniku, a potom se izvrsava. Pretpostaviti da korisnik nece uneti naredbu SELECT, kao ni da nece sadrzati parametarske oznake. Pretpostaviti da naredba koja se cita iz datoteke nije duza od 255 karaktera.
+// Datoteku koja sadrzi SQL naredbu koja povecava ESPB bodove svim predmetima za 1. Izvrsiti naredbu iz ove datoteke napisanim programom.
+
+#include <iostream>
+#include <sql.h>
+#include <fstream>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+char host_input[256];
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(int argc, char** argv){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		if(argc != 2){
+			std::cerr << "argc != 2" << std::endl;
+			return 1;
+		}
+		
+		std::ifstream file(argv[1]);
+		
+		if(!file.is_open()){
+			std::cerr << "File Error: Could not open it" << std::endl;
+			return 1;
+		}
+		
+		file.getline(host_input, sizeof(host_input), ';');
+		
+		file.close();
+		
+		std::cout << host_input << std::endl;
+		
+		EXEC SQL EXECUTE IMMEDIATE :host_input;
+		if(SQLCODE < 0) throw my::SqlException("execute");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+		return 1;
+	}
+	
+	return 0;
+}
+

@@ -41,6 +41,7 @@ int main(){
 		std::cerr << "SQL error: " << e.msg << std::endl;
 		std::cerr << buffer << std::endl;
 		EXEC SQL CONNECT RESET;
+		return 1;
 	}
 	
 	std::cout << "Maksimalni indeks iz tabele ispit je: " << host_indeks << std::endl;

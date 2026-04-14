@@ -1,4 +1,4 @@
-// Napisati C++/SQL program kojim se za svaki od studijskih programa korisniku postavlja pitanje da li zeli da uveca broj bodova za 10. Ako je odgovor potvrdan, vrsi se odgovarajuca promena.
+// Napisati C++/SQL program kojim se za svaki smer pronalazi studenta koji ima najvise polozenih ESPB bodova. Zatim u tabeli ISPIT u napomeni koja se odnosi na poslednji polozeni ispit tog studenta zapisuje 'Ovo je student koji ima najvise polozenih kredita na svom smeru'.
 
 #include <iostream>
 #include <sql.h>
@@ -7,6 +7,8 @@ EXEC SQL INCLUDE SQLCA;
 
 EXEC SQL BEGIN DECLARE SECTION;
 sqlint32 host_id;
+sqlint32 host_indeks;
+sqlint16 host_sum_of_espb;
 EXEC SQL END DECLARE SECTION;
 
 namespace my{
@@ -30,14 +32,12 @@ int main(){
 			DECLARE cursor_studijskiprogram CURSOR FOR
 			SELECT ID
 			FROM DA.STUDIJSKIPROGRAM
-			FOR UPDATE OF OBIMESPB
 		;
 		if(SQLCODE < 0) throw my::SqlException("declare");
-		
+
 		EXEC SQL OPEN cursor_studijskiprogram;
 		if(SQLCODE < 0) throw my::SqlException("open");
 		
-		char input;
 		for(;;){
 			EXEC SQL
 				FETCH cursor_studijskiprogram
@@ -46,18 +46,27 @@ int main(){
 			if(SQLCODE < 0) throw my::SqlException("fetch");
 			if(SQLCODE == 100) break;
 			
-			std::cout << host_id << "? (y/n)" << std::endl;
+			EXEC SQL
+				SELECT X.INDEKS, SUM(Z.ESPB) sum_of_espb
+				INTO :host_indeks, :host_sum_of_espb
+				FROM DA.DOSIJE X JOIN DA.ISPIT Y ON X.INDEKS = Y.INDEKS JOIN DA.PREDMET Z ON Y.IDPREDMETA = Z.ID
+				WHERE X.IDPROGRAMA = :host_id AND Y.STATUS = 'o' AND Y.OCENA > 5
+				GROUP BY X.INDEKS
+				ORDER BY sum_of_espb DESC
+				LIMIT 1
+			;
+			if(SQLCODE < 0) throw my::SqlException("select");
 			
-			std::cin >> input;
+			std::cout << host_id << " " << host_indeks << " " << host_sum_of_espb << std::endl;
 			
-			if(input == 'y'){
-				EXEC SQL
-					UPDATE DA.STUDIJSKIPROGRAM
-					SET OBIMESPB = OBIMESPB + 10
-					WHERE CURRENT OF cursor_studijskiprogram
-				;
-				if(SQLCODE < 0) throw my::SqlException("update");
-			}
+			EXEC SQL
+				UPDATE DA.ISPIT
+				SET NAPOMENA = 'Ovo je student koji ima najvise polozenih kredita na svom smeru'
+				WHERE INDEKS = :host_indeks AND STATUS = 'o' AND OCENA > 5
+				ORDER BY DATPOLAGANJA DESC
+				LIMIT 1
+			;
+			if(SQLCODE < 0) throw my::SqlException("update");
 		}
 		
 		EXEC SQL CLOSE cursor_studijskiprogram;

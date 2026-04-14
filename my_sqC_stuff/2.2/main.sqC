@@ -48,6 +48,7 @@ int main(){
 		std::cerr << "SQL error: " << e.msg << std::endl;
 		std::cerr << buffer << std::endl;
 		EXEC SQL CONNECT RESET;
+		return 1;
 	}
 	
 	std::cout << host_indeks << " " << host_ime << " " << host_prezime << " " << ((indicator_mestorodjenja < 0) ? "NULL" : host_mestorodjenja) << " " << ((indicator_datdiplomiranja < 0) ? "NULL" : host_datdiplomiranja) << std::endl;

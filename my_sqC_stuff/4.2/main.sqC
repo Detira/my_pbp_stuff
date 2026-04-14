@@ -1,0 +1,74 @@
+// Napisati C++/SQL program u kojem se naredbe izvrsavaju dinamicki kojim se omogucava da korisnik unese podatke o novom ispitnom roku. Uneti novi ispitni rok u bazu podataka sa unetim podacima. Obratiti paznju da se naziv roka moze sadrzati od vise reci.
+
+#include <iostream>
+#include <sql.h>
+#include <limits>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+char host_statement[256] = "INSERT INTO DA.ISPITNIROK VALUES(?, ?, ?, ?, ?)";
+sqlint16 host_skgodina;
+char host_oznakaroka[21];
+char host_naziv[31];
+char host_datpocetka[11];
+char host_datkraja[11];
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL PREPARE STATEMENT FROM :host_statement;
+		if(SQLCODE < 0) throw my::SqlException("prepare");
+		
+		std::cout << "expecting: skgodina" << std::endl;
+		std::cin >> host_skgodina;
+		
+		std::cout << "expecting: oznakaroka" << std::endl;
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		std::cin >> host_oznakaroka;
+		
+		std::cout << "expecting: naziv" << std::endl;
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		std::cin.getline(host_naziv, sizeof(host_naziv));
+		
+		std::cout << "expecting: datpocetka" << std::endl;
+		std::cin >> host_datpocetka;
+		
+		std::cout << "expecting: datkraja" << std::endl;
+		std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+		std::cin >> host_datkraja;
+		
+		EXEC SQL
+			EXECUTE STATEMENT
+			USING :host_skgodina, :host_oznakaroka, :host_naziv, :host_datpocetka, :host_datkraja
+		;
+		if(SQLCODE < 0) throw my::SqlException("execute");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL CONNECT RESET;
+	}
+	
+	return 0;
+}
+

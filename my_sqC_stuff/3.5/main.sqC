@@ -1,4 +1,4 @@
-// Napisati C++/SQL program kojim se za svaki od studijskih programa korisniku postavlja pitanje da li zeli da uveca broj bodova za 10. Ako je odgovor potvrdan, vrsi se odgovarajuca promena.
+// Napisati C++/SQL program kojim se formira izvestaj o stundetima koji su padali neki ispit koji sadrzi sledece informacije: ime, prezime i broj indeksa. Za svaki studijski program formirati posebnu sekciju izvestaja sa zaglavljem koje sadrzi identifikator i naziv studijskog programa. Izvestaj urediti po nazivu studijskog programa rastuce, a sadrzaj svake sekcije urediti po broju indeksa rastuce.
 
 #include <iostream>
 #include <sql.h>
@@ -7,6 +7,10 @@ EXEC SQL INCLUDE SQLCA;
 
 EXEC SQL BEGIN DECLARE SECTION;
 sqlint32 host_id;
+char host_naziv[51];
+sqlint32 host_indeks;
+char host_ime[51];
+char host_prezime[51];
 EXEC SQL END DECLARE SECTION;
 
 namespace my{
@@ -28,36 +32,50 @@ int main(){
 		
 		EXEC SQL
 			DECLARE cursor_studijskiprogram CURSOR FOR
-			SELECT ID
+			SELECT ID, NAZIV
 			FROM DA.STUDIJSKIPROGRAM
-			FOR UPDATE OF OBIMESPB
+			ORDER BY NAZIV ASC
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL
+			DECLARE cursor_dosije CURSOR FOR
+			SELECT IME, PREZIME, INDEKS
+			FROM DA.DOSIJE X
+			WHERE X.IDPROGRAMA = :host_id AND EXISTS (SELECT * FROM DA.ISPIT WHERE INDEKS = X.INDEKS AND STATUS = 'o' AND OCENA = 5)
+			ORDER BY INDEKS ASC
 		;
 		if(SQLCODE < 0) throw my::SqlException("declare");
 		
 		EXEC SQL OPEN cursor_studijskiprogram;
 		if(SQLCODE < 0) throw my::SqlException("open");
 		
-		char input;
 		for(;;){
 			EXEC SQL
 				FETCH cursor_studijskiprogram
-				INTO :host_id
+				INTO :host_id, :host_naziv
 			;
 			if(SQLCODE < 0) throw my::SqlException("fetch");
 			if(SQLCODE == 100) break;
 			
-			std::cout << host_id << "? (y/n)" << std::endl;
+			EXEC SQL OPEN cursor_dosije;
+			if(SQLCODE < 0) throw my::SqlException("open");
 			
-			std::cin >> input;
+			std::cout << host_id << " " << host_naziv << std::endl;
 			
-			if(input == 'y'){
+			for(;;){
 				EXEC SQL
-					UPDATE DA.STUDIJSKIPROGRAM
-					SET OBIMESPB = OBIMESPB + 10
-					WHERE CURRENT OF cursor_studijskiprogram
+					FETCH cursor_dosije
+					INTO :host_ime, :host_prezime, :host_indeks
 				;
-				if(SQLCODE < 0) throw my::SqlException("update");
+				if(SQLCODE < 0) throw my::SqlException("fetch");
+				if(SQLCODE == 100) break;
+				
+				std::cout << host_ime << " " << host_prezime << " " << host_indeks << std::endl;
 			}
+			
+			EXEC SQL CLOSE cursor_dosije;
+			if(SQLCODE < 0) throw my::SqlException("close");
 		}
 		
 		EXEC SQL CLOSE cursor_studijskiprogram;
