@@ -7,22 +7,26 @@ Use mcomp (my_compilation) script to compile the .sqC codes:
 
 In case of an sql error, it's description can be read using:
 	syntax: db2 "? sqlSQLCODE"
-		for example is SQLCODE was -303:
+		for example if SQLCODE was -303:
 		db2 "? sql-303"
 
 Conversion table for data types:
-	SQL			C
-	----------  -------------------
-	SMALLINT	sqlint16, short
-	INTEGER		sqlint32, long
-	BIGINT		sqlint64, long long
-	REAL		float
-	DOUBLE		double
-	DECIMAL		double
-	CHAR(1)		char
-	CHAR(n)		char[n+1]
-	VARCHAR(n)	char[n+1]
-	DATE		char[11]
-	TIME		char[9]
-	TIMESTAMP	char[33]
-
+	SQL					C
+	----------  		-------------------
+	SMALLINT			sqlint16, short
+	INTEGER				sqlint32, long
+	BIGINT				sqlint64, long long
+	REAL				float
+	DOUBLE				double
+	DECIMAL				double
+	CHAR(1)				char
+	CHAR(n)				char[n+1]
+	VARCHAR(n)			char[n+1]
+	DATE				char[11]
+	TIME				char[9]
+	TIMESTAMP			char[33]
+	LONG VARCHAR(n)		SQL TYPE IS CLOB(n)
+							or
+						struct { sqluint32 length; char data[n]; }
+							or
+						struct { short length; char data[n]; }

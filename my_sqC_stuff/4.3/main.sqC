@@ -1,4 +1,4 @@
-// Napisati C++/SQL program koji ispisuje identifikator, oznaku, naziv, nivo, broj bodova, zvanje i opis za svaki od studijskih programa.
+// Napisati C++/SQL program u kojem se naredbe izvrsavaju dinamicki. Izdvojiti naredne podatke o studijskim programima: identifikator, oznaka i naziv, za svaki studijski program ciji se identifikator nivoa unosi sa standardnog ulaza.
 
 #include <iostream>
 #include <sql.h>
@@ -6,14 +6,11 @@
 EXEC SQL INCLUDE SQLCA;
 
 EXEC SQL BEGIN DECLARE SECTION;
-	sqlint32 host_id;
-	char host_oznaka[11];
-	char host_naziv[51];
-	sqlint16 host_idnivoa;
-	sqlint16 host_obimespb;
-	char host_zvanje[101];
-	SQL TYPE IS CLOB(32700) host_opis;
-	short indicator_opis;
+char host_statement[255] = "SELECT ID, OZNAKA, NAZIV FROM DA.STUDIJSKIPROGRAM WHERE IDNIVOA = ?";
+sqlint32 host_id;
+char host_oznaka[11];
+char host_naziv[51];
+sqlint16 host_idnivoa;
 EXEC SQL END DECLARE SECTION;
 
 namespace my{
@@ -33,25 +30,33 @@ int main(){
 		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
 		if(SQLCODE < 0) throw my::SqlException("connect");
 		
+		EXEC SQL PREPARE STATEMENT FROM :host_statement;
+		if(SQLCODE < 0) throw my::SqlException("prepare");
+		
 		EXEC SQL
 			DECLARE cursor_studijskiprogram CURSOR FOR
-			SELECT *
-			FROM DA.STUDIJSKIPROGRAM
+			STATEMENT
 		;
 		if(SQLCODE < 0) throw my::SqlException("declare");
 		
-		EXEC SQL OPEN cursor_studijskiprogram;
+		std::cout << "expecting: idnivoa" << std::endl;
+		std::cin >> host_idnivoa;
+		
+		EXEC SQL
+			OPEN cursor_studijskiprogram
+			USING :host_idnivoa
+		;
 		if(SQLCODE < 0) throw my::SqlException("open");
 		
 		for(;;){
 			EXEC SQL
 				FETCH cursor_studijskiprogram
-				INTO :host_id, :host_oznaka, :host_naziv, :host_idnivoa, :host_obimespb, :host_zvanje, :host_opis:indicator_opis
+				INTO :host_id, :host_oznaka, :host_naziv
 			;
 			if(SQLCODE < 0) throw my::SqlException("fetch");
 			if(SQLCODE == 100) break;
 			
-			std::cout << host_id << " " << host_oznaka << " " << host_naziv << " " << host_idnivoa << " " << host_obimespb << " " << host_zvanje << " " << ((indicator_opis < 0) ? "NULL" : host_opis.data) << std::endl;
+			std::cout << host_id << " " << host_oznaka << " " << host_naziv << std::endl;
 		}
 		
 		EXEC SQL CLOSE cursor_studijskiprogram;
@@ -65,7 +70,6 @@ int main(){
 		std::cerr << "SQL error: " << e.msg << std::endl;
 		std::cerr << buffer << std::endl;
 		EXEC SQL CONNECT RESET;
-		return 1;
 	}
 	
 	return 0;

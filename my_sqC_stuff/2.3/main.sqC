@@ -33,6 +33,7 @@ int main(){
 		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
 		if(SQLCODE < 0) throw my::SqlException("connect");
 		
+		std::cout << "expecting: indeks" << std::endl;
 		std::cin >> host_input_indeks;
 		
 		EXEC SQL

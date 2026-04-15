@@ -39,6 +39,7 @@ int main(){
 		;
 		if(SQLCODE < 0) throw my::SqlException("declare");
 		
+		std::cout << "expecting: indeks" << std::endl;
 		std::cin >> host_indeks;
 		
 		EXEC SQL OPEN cursor_ispit;
