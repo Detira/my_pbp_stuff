@@ -1,0 +1,98 @@
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint32 host_indeks;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL
+			SELECT MAX(INDEKS)
+			INTO :host_indeks
+			FROM DA.ISPIT
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		std::cout << host_indeks << std::endl;
+		
+		if(SQLCODE == 100){
+			std::cout << "Table DA.ISPIT is empty" << std::endl;
+			
+			EXEC SQL CONNECT RESET;
+			if(SQLCODE < 0) throw my::SqlException("reset");
+			
+			return 0;
+		}
+		
+		EXEC SQL
+			DELETE FROM DA.ISPIT
+			WHERE INDEKS = :host_indeks
+		;
+		if(SQLCODE < 0) throw my::SqlException("delete");
+		
+		EXEC SQL
+			SELECT MAX(INDEKS)
+			INTO :host_indeks
+			FROM DA.ISPIT
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		std::cout << host_indeks << std::endl;
+		
+		std::cout << "(y/n)" << std::endl;
+		
+		char input;
+		std::cin >> input;
+		
+		if(input == 'y'){
+			EXEC SQL COMMIT;
+			if(SQLCODE < 0) throw my::SqlException("commit");
+			std::cout << "Commited" << std::endl;
+		} else {
+			EXEC SQL ROLLBACK;
+			std::cout << "Rollbacked" << std::endl;
+			if(SQLCODE < 0) throw my::SqlException("rollback");
+		}
+		
+		EXEC SQL
+			SELECT MAX(INDEKS)
+			INTO :host_indeks
+			FROM DA.ISPIT
+		;
+		if(SQLCODE < 0) throw my::SqlException("select");
+		
+		std::cout << host_indeks << std::endl;
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL ROLLBACK;
+		EXEC SQL CONNECT RESET;
+		return 1;
+	}
+	
+	return 0;
+}
+

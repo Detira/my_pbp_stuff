@@ -30,7 +30,9 @@ int main(){
 		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
 		std::cerr << "SQL error: " << e.msg << std::endl;
 		std::cerr << buffer << std::endl;
+		EXEC SQL ROLLBACK;
 		EXEC SQL CONNECT RESET;
+		return 1;
 	}
 	
 	return 0;
