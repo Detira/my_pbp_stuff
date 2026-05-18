@@ -55,9 +55,7 @@ int main(){
 		;
 		if(SQLCODE < 0) throw my::SqlException("select");
 		
-		std::cout << host_indeks << std::endl;
-		
-		std::cout << "(y/n)" << std::endl;
+		std::cout << host_indeks << "? (y/n)" << std::endl;
 		
 		char input;
 		std::cin >> input;
@@ -80,6 +78,9 @@ int main(){
 		if(SQLCODE < 0) throw my::SqlException("select");
 		
 		std::cout << host_indeks << std::endl;
+		
+		EXEC SQL COMMIT;
+		if(SQLCODE < 0) throw my::SqlException("commit");
 		
 		EXEC SQL CONNECT RESET;
 		if(SQLCODE < 0) throw my::SqlException("reset");

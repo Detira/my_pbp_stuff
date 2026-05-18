@@ -23,6 +23,9 @@ int main(){
 		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
 		if(SQLCODE < 0) throw my::SqlException("connect");
 		
+		EXEC SQL COMMIT;
+		if(SQLCODE < 0) throw my::SqlException("commit");
+		
 		EXEC SQL CONNECT RESET;
 		if(SQLCODE < 0) throw my::SqlException("reset");
 	} catch(const my::SqlException& e){
