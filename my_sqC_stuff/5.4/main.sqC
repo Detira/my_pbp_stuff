@@ -1,0 +1,96 @@
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+char host_naziv[151];
+sqlint16 host_espb;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL DECLARE cursor_predmet CURSOR WITH HOLD FOR
+			SELECT NAZIV, ESPB
+			FROM DA.PREDMET
+			WHERE ID NOT IN (SELECT IDPREDMETA FROM DA.OBRADJENIPREDMETI)
+			FOR UPDATE OF ESPB
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL OPEN cursor_predmet;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		int counter = 0;
+		for(;;){
+			EXEC SQL FETCH cursor_predmet
+				INTO :host_naziv, :host_espb
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			std::cout << host_naziv << " " << host_espb << std::endl;
+			
+			std::cout << "expecting: (y/n)" << std::endl;
+			char input;
+			std::cin >> input;
+			
+			if(input == 'y'){
+				EXEC SQL UPDATE DA.PREDMET
+					SET ESPB = ESPB + 1
+					WHERE CURRENT OF cursor_predmet
+				;
+				if(SQLCODE < 0) throw my::SqlException("update");
+			}
+			
+			if(++counter == 5){
+				EXEC SQL COMMIT;
+				if(SQLCODE < 0) throw my::SqlException("commit");
+				
+				std::cout << "keep going?" << std::endl;
+				std::cout << "expecting: (y/n)" << std::endl;
+				std::cin >> input;
+				
+				if(input != 'y')
+					break;
+				
+				counter = 0;
+			}
+		}
+		
+		EXEC SQL CLOSE cursor_predmet;
+		if(SQLCODE < 0) throw my::SqlException("close");
+		
+		EXEC SQL COMMIT;
+		if(SQLCODE < 0) throw my::SqlException("commit");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL ROLLBACK;
+		EXEC SQL CONNECT RESET;
+		return 1;
+	}
+	
+	return 0;
+}
+

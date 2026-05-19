@@ -1,0 +1,145 @@
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+struct struct_ispitnirok{
+	sqlint16 skgodina;
+	char oznakaroka[21];
+	char naziv[31];
+	char datpocetka[11];
+	char datkraja[11];
+} host_ispitnirok;
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		std::cout << "expecting: <int>" << std::endl;
+		int input1;
+		std::cin >> input1;
+		if(input1 < 0 or input1 > 12){
+			std::cerr << "input must be element of {1, 2, ..., 12}" << std::endl;
+			return 1;
+		}
+		
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		struct_ispitnirok ispitnirokovi[12];
+		std::string months[13] = {"Januar", "Februar", "Mart", "April", "Maj", "Jun", "Jul", "Avgust", "Septembar", "Oktobar", "Novembar", "Decembar"};
+		for(int i=0; i<12; i++){
+			ispitnirokovi[i].skgodina = 2021;
+			sprintf(ispitnirokovi[i].oznakaroka, "%.3s 123", months[i].c_str());
+			sprintf(ispitnirokovi[i].naziv, "%s 123 2021", months[i].c_str());
+			sprintf(ispitnirokovi[i].datpocetka, "%2.2d/01/2021", i+1);
+			sprintf(ispitnirokovi[i].datkraja, "%2.2d/15/2021", i+1);
+		}
+		
+		int counter = 0;
+		while(counter < input1){
+			host_ispitnirok = ispitnirokovi[counter];
+			
+			EXEC SQL INSERT INTO DA.ISPITNIROK
+				VALUES(:host_ispitnirok)
+			;
+			if(SQLCODE < 0) throw my::SqlException("insert");
+			
+			counter++;
+		}
+		
+		EXEC SQL SAVEPOINT sp ON ROLLBACK RETAIN CURSORS;
+		if(SQLCODE < 0) throw my::SqlException("savepoint");
+		
+		while(counter < 12){
+			host_ispitnirok = ispitnirokovi[counter];
+			
+			EXEC SQL INSERT INTO DA.ISPITNIROK
+				VALUES(:host_ispitnirok)
+			;
+			if(SQLCODE < 0) throw my::SqlException("insert");
+			
+			counter++;
+		}
+		
+		EXEC SQL DECLARE cursor_ispitnirok CURSOR FOR
+			SELECT *
+			FROM DA.ISPITNIROK
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL OPEN cursor_ispitnirok;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		for(;;){
+			EXEC SQL FETCH cursor_ispitnirok
+				INTO :host_ispitnirok
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			std::cout << host_ispitnirok.skgodina << " " << host_ispitnirok.oznakaroka << " " << host_ispitnirok.naziv << " " << host_ispitnirok.datpocetka << " " << host_ispitnirok.datkraja << std::endl;
+		}
+		
+		EXEC SQL CLOSE cursor_ispitnirok;
+		if(SQLCODE < 0) throw my::SqlException("close");
+		
+		std::cout << "rollback?" << std::endl;
+		std::cout << "expecting: (y/n)" << std::endl;
+		char input2;
+		std::cin >> input2;
+		
+		if(input2 == 'y'){
+			EXEC SQL ROLLBACK TO SAVEPOINT sp;
+			if(SQLCODE < 0) throw my::SqlException("rollback");
+		} else {
+			EXEC SQL COMMIT;
+			if(SQLCODE < 0) throw my::SqlException("commit");
+		}
+		
+		EXEC SQL OPEN cursor_ispitnirok;
+		if(SQLCODE < 0) throw my::SqlException("open");
+		
+		for(;;){
+			EXEC SQL FETCH cursor_ispitnirok
+				INTO :host_ispitnirok
+			;
+			if(SQLCODE < 0) throw my::SqlException("fetch");
+			if(SQLCODE == 100) break;
+			
+			std::cout << host_ispitnirok.skgodina << " " << host_ispitnirok.oznakaroka << " " << host_ispitnirok.naziv << " " << host_ispitnirok.datpocetka << " " << host_ispitnirok.datkraja << std::endl;
+		}
+		
+		EXEC SQL CLOSE cursor_ispitnirok;
+		if(SQLCODE < 0) throw my::SqlException("close");
+		
+		EXEC SQL COMMIT;
+		if(SQLCODE < 0) throw my::SqlException("commit");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL ROLLBACK;
+		EXEC SQL CONNECT RESET;
+		return 1;
+	}
+	
+	return 0;
+}
+
