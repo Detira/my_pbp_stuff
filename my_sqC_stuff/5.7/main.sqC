@@ -1,0 +1,141 @@
+#include <iostream>
+#include <sql.h>
+
+EXEC SQL INCLUDE SQLCA;
+
+EXEC SQL BEGIN DECLARE SECTION;
+sqlint16 host_skgodina;
+sqlint32 host_indeks;
+sqlint16 host_ocena;
+short indicator_ocena;
+char host_naziv[151];
+EXEC SQL END DECLARE SECTION;
+
+namespace my{
+	class SqlException : public std::exception{
+		public:
+			struct sqlca sqlca_copy;
+			const char* msg;
+			
+			SqlException(const char* msg): msg(msg), sqlca_copy(sqlca){}
+			~SqlException() noexcept {}
+	};
+}
+
+int main(){
+	
+	try{
+		EXEC SQL CONNECT TO stud2020 USER student USING abcdef;
+		if(SQLCODE < 0) throw my::SqlException("connect");
+		
+		EXEC SQL DECLARE cursor_ispit1 CURSOR FOR
+			SELECT DISTINCT SKGODINA
+			FROM DA.ISPIT
+			WHERE INDEKS = :host_indeks AND (INDEKS, SKGODINA) NOT IN (SELECT * FROM DA.OBRADJENAPOLAGANJA)
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		EXEC SQL DECLARE cursor_ispit2 CURSOR FOR
+			SELECT (SELECT NAZIV FROM DA.PREDMET WHERE ID = IDPREDMETA), OCENA
+			FROM DA.ISPIT
+			WHERE INDEKS = :host_indeks and SKGODINA = :host_skgodina AND STATUS = 'o' and OCENA > 5
+			FOR UPDATE OF STATUS
+		;
+		if(SQLCODE < 0) throw my::SqlException("declare");
+		
+		char input;
+		
+		for(;;){
+			std::cout << "expecting: indeks" << std::endl;
+			std::cin >> host_indeks;
+			
+			EXEC SQL OPEN cursor_ispit1;
+			if(SQLCODE < 0) throw my::SqlException("open");
+			
+			for(;;){
+				EXEC SQL FETCH cursor_ispit1
+					INTO :host_skgodina
+				;
+				if(SQLCODE < 0) throw my::SqlException("fetch");
+				if(SQLCODE == 100) break;
+				
+				std::cout << host_skgodina << std::endl;
+			}
+			
+			EXEC SQL CLOSE cursor_ispit1;
+			if(SQLCODE < 0) throw my::SqlException("close");
+			
+			std::cout << "expecting: skgodina" << std::endl;
+			std::cin >> host_skgodina;
+			
+			EXEC SQL OPEN cursor_ispit2;
+			if(SQLCODE < 0) throw my::SqlException("open");
+			
+			for(;;){
+				EXEC SQL FETCH cursor_ispit2
+					INTO :host_naziv, :host_ocena:indicator_ocena
+				;
+				if(SQLCODE < 0) throw my::SqlException("fetch");
+				if(SQLCODE == 100) break;
+				
+				std::cout << host_naziv << " " << ((indicator_ocena < 0) ? 0 : host_ocena) << std::endl;
+				
+				std::cout << "delete?" << std::endl;
+				std::cout << "expecting (y/n)" << std::endl;
+				std::cin >> input;
+				
+				if(input == 'y'){
+					EXEC SQL UPDATE DA.ISPIT
+						SET STATUS = 'x'
+						WHERE CURRENT OF cursor_ispit2
+					;
+				}
+			}
+			
+			EXEC SQL CLOSE cursor_ispit2;
+			if(SQLCODE < 0) throw my::SqlException("close");
+			
+			std::cout << "commit?" << std::endl;
+			std::cout << "expecting: (y/n)" << std::endl;
+			std::cin >> input;
+			
+			if(input == 'n'){
+				EXEC SQL ROLLBACK;
+				if(SQLCODE < 0) throw my::SqlException("rollback");
+			}
+			
+			EXEC SQL INSERT INTO DA.OBRADJENAPOLAGANJA
+				VALUES(:host_indeks, :host_skgodina)
+			;
+			if(SQLCODE < 0) throw my::SqlException("insert");
+			
+			EXEC SQL COMMIT;
+			if(SQLCODE < 0) throw my::SqlException("commit");
+			
+			std::cout << "end?" << std::endl;
+			std::cout << "expecting (y/n)" << std::endl;
+			std::cin >> input;
+			
+			if(input == 'y'){
+				break;
+			}
+		}
+		
+		EXEC SQL COMMIT;
+		if(SQLCODE < 0) throw my::SqlException("commit");
+		
+		EXEC SQL CONNECT RESET;
+		if(SQLCODE < 0) throw my::SqlException("reset");
+	} catch(const my::SqlException& e){
+		char buffer[1024];
+		sqlaintp(buffer, sizeof(buffer), 50, (struct sqlca *)&e.sqlca_copy);
+		std::cerr << "SQL error: " << e.msg << std::endl;
+		std::cerr << buffer << std::endl;
+		EXEC SQL ROLLBACK;
+		EXEC SQL CONNECT RESET;
+		return 1;
+	}
+	
+	return 0;
+}
+
